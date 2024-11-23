@@ -1,0 +1,142 @@
+
+%{
+#include <iostream>
+#include <FlexLexer.h>
+
+  // defines my lexical analyzer class 
+#include "MyScanner.hpp"
+
+  // bison/yacc requires a fumction called yylex() to get
+  // the next token  
+#define yylex(x) scanner->lex(x)
+
+using namespace yy;
+using namespace std;
+
+%}
+
+%require "3.2"
+%language "C++"
+
+%defines "Parser.hpp"
+%output "Parser.cpp"
+%define api.parser.class {Parser}
+
+
+%code requires
+{
+
+struct myst
+{
+  int varCount; 
+  std::string name;
+  std::string type; 
+};
+
+}
+%define api.value.type {struct myst}
+
+%parse-param {MyScanner* scanner}
+
+
+
+
+
+/* bison token  Declarations */
+%token ADDOP_T
+%token ASSIGNOP_T
+%token ID_T
+%token LPAREN_T
+%token MULOP_T
+%token NUM_INT_T
+%token NUM_REAL_T
+%token RPAREN_T
+%token SEMICOLON_T
+%token COMMA_T
+%token WHILE_T
+%token BEGIN_T
+%token END_T
+%token OR_T
+%token AND_T
+%token NOT_T
+%token IF_T
+%token THEN_T
+%token ELSE_T
+%token VOID_T
+%token RELOP_T
+%token FLOAT_T
+%token INT_T
+
+
+%%
+
+start: pgm {cout << $1.varCount << " global variables" << endl;} ;
+
+pgm: pgmpart pgm {$$.varCount = $1.varCount + $2.varCount;} | pgmpart {$$.varCount = $1.varCount;} ;
+
+pgmpart: vardecl {$$.varCount = $1.varCount; }| function {cout << "Function: " << $1.name << " contains: " << $1.varCount << " local vars. " << endl;} ; 
+
+vardecl: type varlist SEMICOLON_T{$$.varCount = $2.varCount; cout << "Declared: " << $2.varCount << endl; } ; 
+
+type: INT_T | FLOAT_T | VOID_T; 
+
+varlist: ID_T COMMA_T varlist {$$.varCount = 1 + $3.varCount;} | ID_T { $$.varCount++;} ; 
+
+function: type ID_T LPAREN_T RPAREN_T body {$$.name = $2.name; cout << $$.name << endl; $$.varCount = $5.varCount; }| 
+		type ID_T LPAREN_T fplist RPAREN_T body {$$.name = $2.name; $$.varCount = $4.varCount + $6.varCount; }; 
+
+body: BEGIN_T bodylist END_T {$$.varCount = $2.varCount;  } ;
+
+fplist: ID_T COMMA_T fplist | ID_T; 
+
+bodylist: vardecl bodylist {$$.varCount = $1.varCount + $2.varCount; }| stmt bodylist {$$.varCount = $2.varCount;} | {$$.varCount = 0; }  //think this means epsilon;
+
+stmt: assign SEMICOLON_T | fcall SEMICOLON_T | while | if | body; 
+
+assign: ID_T ASSIGNOP_T expr;
+
+expr: factor | expr ADDOP_T factor; 
+
+factor: term | factor MULOP_T term; 
+
+term: ID_T | NUM_INT_T | NUM_REAL_T | LPAREN_T expr RPAREN_T | ADDOP_T term | fcall; 
+
+bexpr: bfactor | bexpr OR_T bfactor; 
+
+bfactor: bneg | bfactor AND_T bneg; 
+
+bneg: bterm | NOT_T bterm; 
+
+bterm: expr RELOP_T expr | LPAREN_T bterm RPAREN_T;
+
+fcall: ID_T LPAREN_T RPAREN_T | ID_T LPAREN_T aplist RPAREN_T; 
+
+aplist: expr COMMA_T aplist | expr; 
+
+while: WHILE_T LPAREN_T bexpr RPAREN_T stmt; 
+
+if: IF_T LPAREN_T bexpr RPAREN_T THEN_T stmt | 
+	IF_T LPAREN_T bexpr RPAREN_T THEN_T stmt ELSE_T stmt; 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%%
+void Parser::error(const std::string& msg) {
+    std::cerr << msg << " near " << scanner->YYText()  
+              << " on line #" << scanner->lineno()
+              << endl;
+	      }
